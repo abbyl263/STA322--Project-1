@@ -26,8 +26,8 @@ colleges_q1 <-  colleges %>%
     TRUE ~ NA_character_
   )) %>%
   mutate(size = case_when(
-    UGDS > 10000 ~ "Large",
-    UGDS >= 2000 & UGDS <= 10000 ~ "Medium",
+    UGDS > 15000 ~ "Large",
+    UGDS >= 2000 & UGDS <= 15000 ~ "Medium",
     UGDS < 2000 ~ "Small",
     TRUE ~ NA_character_  
   ))
