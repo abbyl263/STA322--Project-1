@@ -1,2 +1,48 @@
 # STA322 Project 1
 ## Austin Huang and Abby Li
+
+### Question 1
+
+```{r}
+library(dplyr)
+colleges <- read.csv("colleges.csv")
+```
+
+```{r}
+
+# colleges <- colleges %>%
+#   mutate(size = case_when(
+#     UGDS > 10000 ~ "Large",
+#     UGDS >= 2000 & UGDS <= 10000 ~ "Medium",
+#     UGDS < 2000 ~ "Small",
+#     TRUE ~ NA_character_  
+#   ))
+
+colleges_q1 <-  colleges %>%
+  select(UGDS, size, CONTROL) %>%
+  mutate (type = case_when(
+    CONTROL == 1 ~ "Public",
+    CONTROL %in% c(2, 3) ~"Private",
+    TRUE ~ NA_character_
+  )) %>%
+  mutate(size = case_when(
+    UGDS > 10000 ~ "Large",
+    UGDS >= 2000 & UGDS <= 10000 ~ "Medium",
+    UGDS < 2000 ~ "Small",
+    TRUE ~ NA_character_  
+  ))
+
+# creating the six strata 
+colleges_q1 <- colleges_q1 %>%
+  mutate(stratum = case_when(
+    type == "Public" & size == "Large"  ~ "Public-Large",
+    type == "Public" & size == "Medium" ~ "Public-Medium",
+    type == "Public" & size == "Small"  ~ "Public-Small",
+    type == "Private" & size == "Large"  ~ "Private-Large",
+    type == "Private" & size == "Medium" ~ "Private-Medium",
+    type == "Private" & size == "Small"  ~ "Private-Small",
+    TRUE ~ NA_character_
+  ))
+
+```
+
