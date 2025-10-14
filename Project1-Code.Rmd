@@ -19,7 +19,7 @@ colleges <- read.csv("colleges.csv")
 #   ))
 
 colleges_q1 <-  colleges %>%
-  select(UGDS, size, CONTROL, MD_EARN_WNE_5YR) %>%
+  select(INSTNM, UGDS, CONTROL, CIP27BACHL, MD_EARN_WNE_5YR) %>%
   mutate (type = case_when(
     CONTROL == 1 ~ "Public",
     CONTROL %in% c(2, 3) ~"Private",
@@ -44,5 +44,99 @@ colleges_q1 <- colleges_q1 %>%
     TRUE ~ NA_character_
   ))
 
+colleges_q1 <- colleges_q1 %>% 
+  drop_na()
+
 ```
 
+```{r}
+# sample with proportional allocation
+
+N_total <- nrow(colleges_q1)
+n_total <- 54
+
+set.seed(322)
+
+# ---------- 1) Compute stratum population sizes N_h ----------
+stratum_info <- colleges_q1 %>% 
+  group_by(stratum) %>% 
+  summarise(N_h = n()) %>% 
+  ungroup()
+
+# ---------- 2) Proportional allocation: raw n_h ----------
+stratum_info <- stratum_info %>% 
+  mutate(n_h_raw = n_total * (N_h / sum(N_h)))
+
+# ---------- 3) Round n_h to integers while ensuring sum = n_total ----------
+# simple strategy: floor then distribute remainder to strata with largest fractional parts
+stratum_info <- stratum_info %>% 
+  mutate(n_floor = floor(n_h_raw),
+         frac = n_h_raw - n_floor)
+
+remainder <- n_total - sum(stratum_info$n_floor)
+if (remainder > 0) {
+  # give +1 to the strata with largest fractional parts
+  add_idx <- order(stratum_info$frac, decreasing = TRUE)[1:remainder]
+  stratum_info$n_final <- stratum_info$n_floor
+  stratum_info$n_final[add_idx] <- stratum_info$n_final[add_idx] + 1
+} else {
+  stratum_info$n_final <- stratum_info$n_floor
+}
+
+# If any n_final == 0 (small strata), enforce a minimum of 1:
+min_per_stratum <- 1
+zeros <- which(stratum_info$n_final < min_per_stratum)
+if(length(zeros)>0){
+  for(i in zeros) stratum_info$n_final[i] <- min_per_stratum
+  # reduce from the largest strata to keep sum == n_total
+  while(sum(stratum_info$n_final) > n_total){
+    # pick stratum with largest n_final to decrement (but keep >= min)
+    idx <- which.max(stratum_info$n_final)
+    if(stratum_info$n_final[idx] > min_per_stratum) stratum_info$n_final[idx] <- stratum_info$n_final[idx] - 1
+    else break
+  }
+}
+# check
+stopifnot(sum(stratum_info$n_final) == n_total)
+
+
+# ---------- 4) Join n_h back to frame and sample ----------
+colleges_df <- colleges_q1 %>% left_join(stratum_info %>% select(stratum, N_h, n_final), by = "stratum")
+names(colleges_df)[names(colleges_df) == "n_final"] <- "n_h"
+
+# draw SRS without replacement within each stratum
+sampled <- colleges_df %>%
+  group_by(stratum) %>%
+  sample_n(size = unique(n_h)) %>%
+  ungroup()
+
+# ---------- 5) Compute design weights ----------
+# For SRS within stratum, inclusion prob pi = n_h / N_h, so weight = 1/pi = N_h / n_h
+sampled <- sampled %>%
+  mutate(pi = n_h / N_h,
+         weight = N_h / n_h)
+```
+
+
+```{r}
+# ---------- 6) Create survey design and estimate ----------
+design <- svydesign(ids = ~1, weights = ~weight, data = sampled)
+
+# Example estimates:
+# (a) Total undergrads (population total)
+tot_undergrads <- svytotal(~UGDS, design)
+tot_undergrads
+confint(tot_undergrads)  # 95% CI
+
+# (b) Fraction of colleges with stats major (population proportion)
+prop_stats <- svymean(~CIP27BACHL, design)   # returns proportion
+prop_stats
+confint(prop_stats)
+
+# (c) Mean of median earnings among public / private (if you have column 'sector' or stratum encodes sector):
+svyby(~MD_EARN_WNE_5YR, ~type, design, svymean, vartype="ci")
+
+# (d) design effect and standard errors
+svymean(~CIP27BACHL, design, deff=TRUE)
+
+```
