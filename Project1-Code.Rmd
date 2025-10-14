@@ -19,7 +19,7 @@ colleges <- read.csv("colleges.csv")
 #   ))
 
 colleges_q1 <-  colleges %>%
-  select(UGDS, size, CONTROL) %>%
+  select(UGDS, size, CONTROL, MD_EARN_WNE_5YR) %>%
   mutate (type = case_when(
     CONTROL == 1 ~ "Public",
     CONTROL %in% c(2, 3) ~"Private",
