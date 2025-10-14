@@ -117,26 +117,3 @@ sampled <- sampled %>%
          weight = N_h / n_h)
 ```
 
-
-```{r}
-# ---------- 6) Create survey design and estimate ----------
-design <- svydesign(ids = ~1, weights = ~weight, data = sampled)
-
-# Example estimates:
-# (a) Total undergrads (population total)
-tot_undergrads <- svytotal(~UGDS, design)
-tot_undergrads
-confint(tot_undergrads)  # 95% CI
-
-# (b) Fraction of colleges with stats major (population proportion)
-prop_stats <- svymean(~CIP27BACHL, design)   # returns proportion
-prop_stats
-confint(prop_stats)
-
-# (c) Mean of median earnings among public / private (if you have column 'sector' or stratum encodes sector):
-svyby(~MD_EARN_WNE_5YR, ~type, design, svymean, vartype="ci")
-
-# (d) design effect and standard errors
-svymean(~CIP27BACHL, design, deff=TRUE)
-
-```
