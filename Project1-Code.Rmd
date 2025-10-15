@@ -9,6 +9,11 @@ output:
 
 ### Sampling Data
 
+To sample the data, we implemented a stratified sampling method with proportional allocation. 
+
+To start, we found the most up-to-date csv file (Most-Recent-Cohorts-Instition_05192025) from the U.S. Department of Education College Scoreboard site (https://collegescorecard.ed.gov/data/). We decided to create five stratum - private/small, private/medium + large, public/small, public/medium, and public/large. To do this, the first step was to designate which schools were private or public. The variable CONTROL from the original csv file was recoded into a new variable called "type". The variable CONTROL contained 3 levels - 1 indicating public, 2 indicating private nonprofit, and 3 indicating private for profit. The new "type" variable was recoded to contain two levels: public schools (1), and private schools (2 + 3). Next, we categorized the schools as being small, medium, or large. Based on the UGDS variable, indicating undergraduate enrollment, schools were considered small if there is less than 2,000 enrolled, they were considered medium if the enrollment is between 2,000-10,000, and they were considered large if enrollment is over 10,000. These thresholds were created based on the size categories from the website. Additionally, we decided to combine the strata for private schools to include both large and medium institutions because there are only ~20 schools that are considered large private schools. This allows us to avoid very small stratum sample sizes when implementing proportional allocation, which can help improve the stabiliity of variance estimates. Overall, we chose to use these 5 stratums to create groups based on similar characteristics of type and size with the goal of reducing variance within stratums, but also maintaining differences between stratums. 
+
+
 ```{r}
 library(dplyr)
 library(tidyr)
@@ -140,6 +145,8 @@ avg_median_earnings <- svyby(~MD_EARN_WNE_5YR, ~type, des, svymean, na.rm = TRUE
 avg_median_earnings
 confint(avg_median_earnings)
 ```
+To answer this question, we will be using the MD_EARN_WNE_5YR variable. This variable indicates the median earnings 5 years after graduation, which is a good time metric since the question is focused on alumni specifically (https://collegescorecard.ed.gov/files/InstitutionDataDocumentation.pdf). 
+
 The average of the median earnings among alumni 5 years after completion of private colleges is 48267.42 with a standard error of 2303.50. The average of the median earnings among alumni 5 years after completion of public colleges is 49500.21 with a standard error of 1286.48.
 The 95% confidence interval for median earnings for private school alum is between 43,752 and 52,782. The 95% confidence interval for median earnings for public school alum is between 46,978 and 52,021. 
 
@@ -152,6 +159,9 @@ avg_median_debt
 confint(avg_median_debt)
 ```
 
+To answer this question, we will be using the TUITIONFEE_IN variable. This variable indicates the tuition and required fees that are for in-state students (https://collegescorecard.ed.gov/files/InstitutionDataDocumentation.pdf) 
+
 The average of tuition for in-state students in private colleges is 28,834 with a standrad error of 2017. The average tuition for in-state students in public colleges is 5,990 with a standard error of 491. 
 The 95% CI for average tuition of in-state students in private colleges is between 24880 and 32788. The 95% CI for average tuition of in-state students in public colleges is between 5026 and 6955. 
+This makes sense private colleges usually charge both in-state and out-state students the same tuition, whereas those living in-state and attending public colleges are usually charged significantly less. 
 
