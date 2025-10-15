@@ -1,25 +1,26 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+
 # STA322 Project 1
 ## Austin Huang and Abby Li
 
-### Question 1
+### Sampling Data
 
 ```{r}
 library(dplyr)
+library(tidyr)
+library(survey)
+
 colleges <- read.csv("colleges.csv")
 ```
 
 ```{r}
 
-# colleges <- colleges %>%
-#   mutate(size = case_when(
-#     UGDS > 10000 ~ "Large",
-#     UGDS >= 2000 & UGDS <= 10000 ~ "Medium",
-#     UGDS < 2000 ~ "Small",
-#     TRUE ~ NA_character_  
-#   ))
-
 colleges_q1 <-  colleges %>%
-  select(INSTNM, UGDS, CONTROL, CIP27BACHL, MD_EARN_WNE_5YR) %>%
+  select(INSTNM, UGDS, CONTROL, CIP27BACHL, MD_EARN_WNE_5YR, TUITIONFEE_IN) %>%
   mutate (type = case_when(
     CONTROL == 1 ~ "Public",
     CONTROL %in% c(2, 3) ~"Private",
@@ -38,9 +39,8 @@ colleges_q1 <- colleges_q1 %>%
     type == "Public" & size == "Large"  ~ "Public-Large",
     type == "Public" & size == "Medium" ~ "Public-Medium",
     type == "Public" & size == "Small"  ~ "Public-Small",
-    type == "Private" & size == "Large"  ~ "Private-Large",
-    type == "Private" & size == "Medium" ~ "Private-Medium",
-    type == "Private" & size == "Small"  ~ "Private-Small",
+    type == "Private" & size == "Small" ~ "Private-Small",
+    type == "Private" & size %in% c("Medium","Large")~ "Private-Medium/Large",
     TRUE ~ NA_character_
   ))
 
@@ -53,7 +53,7 @@ colleges_q1 <- colleges_q1 %>%
 # sample with proportional allocation
 
 N_total <- nrow(colleges_q1)
-n_total <- 54
+n_total <- 100
 
 set.seed(322)
 
@@ -116,4 +116,42 @@ sampled <- sampled %>%
   mutate(pi = n_h / N_h,
          weight = N_h / n_h)
 ```
+
+### Question 1
+What is an estimate of the total number of undergraduate students enrolled in colleges? Design your survey with the goal of answering this question most accurately. 
+
+```{r}
+des <- svydesign(id = ~1, strata = ~stratum, weights = ~weight, fpc = ~N_h, data = sampled)
+
+total_undergrads <- svytotal(~UGDS, des)
+total_undergrads
+confint(total_undergrads)
+```
+The total number of undergraduate students enrolled in college is 13,056,855 with a standard error of 1,157,820. We are 95% confident that the true total number of undergraduates is between 10,787,569 and 15,326,140. 
+
+### Question 2
+What fraction of colleges have a major in statistical science? Use your sample to estimate this fraction; do not get the answer by filtering the schools. 
+
+### Question 3
+What is the average of the median earnings among alumni from public schools? From private schools? (combine for profit and not for profit private schools)
+
+```{r}
+avg_median_earnings <- svyby(~MD_EARN_WNE_5YR, ~type, des, svymean, na.rm = TRUE)
+avg_median_earnings
+confint(avg_median_earnings)
+```
+The average of the median earnings among alumni 5 years after completion of private colleges is 48267.42 with a standard error of 2303.50. The average of the median earnings among alumni 5 years after completion of public colleges is 49500.21 with a standard error of 1286.48.
+The 95% confidence interval for median earnings for private school alum is between 43,752 and 52,782. The 95% confidence interval for median earnings for public school alum is between 46,978 and 52,021. 
+
+### Question 4
+What is the average of the tuition for in-state students from public schools? From private schools? (combine for profit and not for profit private schools)
+
+```{r}
+avg_median_debt <- svyby(~TUITIONFEE_IN, ~type, des, svymean, na.rm = TRUE)
+avg_median_debt
+confint(avg_median_debt)
+```
+
+The average of tuition for in-state students in private colleges is 28,834 with a standrad error of 2017. The average tuition for in-state students in public colleges is 5,990 with a standard error of 491. 
+The 95% CI for average tuition of in-state students in private colleges is between 24880 and 32788. The 95% CI for average tuition of in-state students in public colleges is between 5026 and 6955. 
 
