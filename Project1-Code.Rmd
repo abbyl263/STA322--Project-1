@@ -11,7 +11,7 @@ output:
 
 To sample the data, we implemented a stratified sampling method with proportional allocation. 
 
-To start, we found the most up-to-date csv file (Most-Recent-Cohorts-Instition_05192025) from the U.S. Department of Education College Scoreboard site (https://collegescorecard.ed.gov/data/). We decided to create five stratum - private/small, private/medium + large, public/small, public/medium, and public/large. To do this, the first step was to designate which schools were private or public. The variable CONTROL from the original csv file was recoded into a new variable called "type". The variable CONTROL contained 3 levels - 1 indicating public, 2 indicating private nonprofit, and 3 indicating private for profit. The new "type" variable was recoded to contain two levels: public schools (1), and private schools (2 + 3). Next, we categorized the schools as being small, medium, or large. Based on the UGDS variable, indicating undergraduate enrollment, schools were considered small if there is less than 2,000 enrolled, they were considered medium if the enrollment is between 2,000-10,000, and they were considered large if enrollment is over 10,000. These thresholds were created based on the size categories from the website. Additionally, we decided to combine the strata for private schools to include both large and medium institutions because there are only ~20 schools that are considered large private schools. This allows us to avoid very small stratum sample sizes when implementing proportional allocation, which can help improve the stabiliity of variance estimates. Overall, we chose to use these 5 stratums to create groups based on similar characteristics of type and size with the goal of reducing variance within stratums, but also maintaining differences between stratums. 
+To start, we found the most up-to-date csv file (Most-Recent-Cohorts-Instition_05192025) from the U.S. Department of Education College Scoreboard site (https://collegescorecard.ed.gov/data/). We decided to create five stratum - private/small, private/medium + large, public/small, public/medium, and public/large. To do this, the first step was to designate which schools were private or public. The variable CONTROL from the original csv file was recoded into a new variable called "type". The variable CONTROL contained 3 levels - 1 indicating public, 2 indicating private nonprofit, and 3 indicating private for profit. The new "type" variable was recoded to contain two levels: public schools (1), and private schools (2 + 3). Next, we categorized the schools as being small, medium, or large. Based on the UGDS variable, indicating undergraduate enrollment, schools were considered small if there is less than 2,000 enrolled, they were considered medium if the enrollment is between 2,000-10,000, and they were considered large if enrollment is over 10,000. These thresholds were created based on the size categories from the website. Additionally, we decided to combine the strata for private schools to include both large and medium institutions because there are only ~20 schools that are considered large private schools. This allows us to avoid very small stratum sample sizes when implementing proportional allocation, which can help improve the stability of variance estimates. Overall, we chose to use these 5 stratums to create groups based on similar characteristics of type and size with the goal of reducing variance within stratums, but also maintaining differences between stratums. 
 
 
 ```{r}
@@ -154,14 +154,14 @@ The 95% confidence interval for median earnings for private school alum is betwe
 What is the average of the tuition for in-state students from public schools? From private schools? (combine for profit and not for profit private schools)
 
 ```{r}
-avg_median_debt <- svyby(~TUITIONFEE_IN, ~type, des, svymean, na.rm = TRUE)
-avg_median_debt
-confint(avg_median_debt)
+avg_tuition <- svyby(~TUITIONFEE_IN, ~type, des, svymean, na.rm = TRUE)
+avg_tuition
+confint(avg_tuition)
 ```
 
 To answer this question, we will be using the TUITIONFEE_IN variable. This variable indicates the tuition and required fees that are for in-state students (https://collegescorecard.ed.gov/files/InstitutionDataDocumentation.pdf) 
 
-The average of tuition for in-state students in private colleges is 28,834 with a standrad error of 2017. The average tuition for in-state students in public colleges is 5,990 with a standard error of 491. 
+The average of tuition for in-state students in private colleges is 28,834 with a standard error of 2017. The average tuition for in-state students in public colleges is 5,990 with a standard error of 491. 
 The 95% CI for average tuition of in-state students in private colleges is between 24880 and 32788. The 95% CI for average tuition of in-state students in public colleges is between 5026 and 6955. 
 This makes sense private colleges usually charge both in-state and out-state students the same tuition, whereas those living in-state and attending public colleges are usually charged significantly less. 
 
