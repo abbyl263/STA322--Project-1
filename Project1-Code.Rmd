@@ -62,33 +62,27 @@ colleges_q1 <- colleges_q1 %>%
 colleges_q1 <- colleges_q1 %>%
   drop_na(type, size)
 
-
-#colleges_q1 <- colleges_q1 %>% 
-#  drop_na()
-
 ```
 
 
 ```{r}
 # sample with proportional allocation
-
 N_total <- nrow(colleges_q1)
 n_total <- 100
 
 set.seed(322)
 
-# ---------- 1) Compute stratum population sizes N_h ----------
+# compute N_h: sample size in each stratum
 stratum_info <- colleges_q1 %>% 
   group_by(stratum) %>% 
   summarise(N_h = n()) %>% 
   ungroup()
 
-# ---------- 2) Proportional allocation: raw n_h ----------
+# # compute raw n_h, sample size to allocate to each stratum
 stratum_info <- stratum_info %>% 
   mutate(n_h_raw = n_total * (N_h / sum(N_h)))
 
-# ---------- 3) Round n_h to integers while ensuring sum = n_total ----------
-# simple strategy: floor then distribute remainder to strata with largest fractional parts
+# round n_h to integers while ensuring sum = n_total
 stratum_info <- stratum_info %>% 
   mutate(n_floor = floor(n_h_raw),
          frac = n_h_raw - n_floor)
@@ -120,18 +114,17 @@ if(length(zeros)>0){
 stopifnot(sum(stratum_info$n_final) == n_total)
 
 
-# ---------- 4) Join n_h back to frame and sample ----------
+# add n_h to colleges_df
 colleges_df <- colleges_q1 %>% left_join(stratum_info %>% select(stratum, N_h, n_final), by = "stratum")
 names(colleges_df)[names(colleges_df) == "n_final"] <- "n_h"
 
-# draw SRS without replacement within each stratum
+# SRSWOR in each stratum
 sampled <- colleges_df %>%
   group_by(stratum) %>%
   sample_n(size = unique(n_h)) %>%
   ungroup()
 
-# ---------- 5) Compute design weights ----------
-# For SRS within stratum, inclusion prob pi = n_h / N_h, so weight = 1/pi = N_h / n_h
+# compute weights - SRSWOR: pi = n_h / N_h
 sampled <- sampled %>%
   mutate(pi = n_h / N_h,
          weight = N_h / n_h)
@@ -147,6 +140,9 @@ total_undergrads <- svytotal(~UGDS, des)
 total_undergrads
 confint(total_undergrads)
 ```
+
+To answer this question, we use the variable UGDS which indicates the number of undergraduates enrolled in the fall (https://collegescorecard.ed.gov/files/InstitutionDataDocumentation.pdf).
+
 The estimated total number of undergraduate students enrolled in college is 14,235,630 with a standard error of 1,223,757. We are 95% confident that the true total number of undergraduates is between 11,837,110 and 16,634,150. 
 
 ### Question 2
@@ -157,6 +153,7 @@ prop_stats <- svymean(~has_stats_major, des)
 prop_stats
 confint(prop_stats)
 ```
+
 The CIPCODE for mathematics and statistics majors is 27, and there are several degree programs that may be available at each school, including the CIP27ASSOC, CIP27BACHL, CIP27CERT1, CIP27CERT2, CIP27CERT4 variables, which are Boolean variables. If any of these are offered at the college, we count that the university has a statistical science major. The estimated proportion of colleges that have a major in statistical science is 0.2893 with a standard error of 0.0336 The 95% confidence interval for this is (0.2235, 0.3552).
 (https://collegescorecard.ed.gov/files/FieldOfStudyDataDocumentation.pdf)
 
@@ -169,7 +166,8 @@ avg_median_earnings <- svyby(~MD_EARN_WNE_5YR, ~type, des, svymean, na.rm = TRUE
 avg_median_earnings
 confint(avg_median_earnings)
 ```
-To answer this question, we will be using the MD_EARN_WNE_5YR variable. This variable indicates the median earnings 5 years after graduation, which is a good time metric since the question is focused on alumni specifically (https://collegescorecard.ed.gov/files/InstitutionDataDocumentation.pdf). 
+
+To answer this question, we use the MD_EARN_WNE_5YR variable. This variable indicates the median earnings 5 years after graduation, which is a good time metric since the question is focused on alumni specifically (https://collegescorecard.ed.gov/files/InstitutionDataDocumentation.pdf). 
 
 The average of the median earnings among alumni 5 years after completion of private colleges is 49202.90 with a standard error of 2799.480. The average of the median earnings among alumni 5 years after completion of public colleges is 49024.78 with a standard error of 1459.838
 The 95% confidence interval for median earnings for private school alum is between 43,716.02 and 54,689.78. The 95% confidence interval for median earnings for public school alum is between 46,163.55 and 51,886.01.
@@ -183,7 +181,7 @@ avg_tuition
 confint(avg_tuition)
 ```
 
-To answer this question, we will be using the TUITIONFEE_IN variable. This variable indicates the tuition and required fees that are for in-state students (https://collegescorecard.ed.gov/files/InstitutionDataDocumentation.pdf) 
+To answer this question, we use the TUITIONFEE_IN variable. This variable indicates the tuition and required fees that are for in-state students (https://collegescorecard.ed.gov/files/InstitutionDataDocumentation.pdf) 
 
 The average of tuition for in-state students in private colleges is 27,193.65 with a standard error of 2,301.68. The average tuition for in-state students in public colleges is 6,729.94 with a standard error of 916.88. 
 The 95% CI for average tuition of in-state students in private colleges is between 22,682.45 and 31,704.85. The 95% CI for average tuition of in-state students in public colleges is between 4,932.89 and 8,527.00. 
