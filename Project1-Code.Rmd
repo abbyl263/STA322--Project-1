@@ -11,7 +11,9 @@ output:
 
 To sample the data, we implemented a stratified sampling method with proportional allocation. 
 
-To start, we found the most up-to-date csv file (Most-Recent-Cohorts-Instition_05192025) from the U.S. Department of Education College Scoreboard site (https://collegescorecard.ed.gov/data/). We decided to create five stratum - private/small, private/medium + large, public/small, public/medium, and public/large. To do this, the first step was to designate which schools were private or public. The variable CONTROL from the original csv file was recoded into a new variable called "type". The variable CONTROL contained 3 levels - 1 indicating public, 2 indicating private nonprofit, and 3 indicating private for profit. The new "type" variable was recoded to contain two levels: public schools (1), and private schools (2 + 3). Next, we categorized the schools as being small, medium, or large. Based on the UGDS variable, indicating undergraduate enrollment, schools were considered small if there is less than 2,000 enrolled, they were considered medium if the enrollment is between 2,000-10,000, and they were considered large if enrollment is over 10,000. These thresholds were created based on the size categories from the website. Additionally, we decided to combine the strata for private schools to include both large and medium institutions because there are only ~20 schools that are considered large private schools. This allows us to avoid very small stratum sample sizes when implementing proportional allocation, which can help improve the stability of variance estimates. Overall, we chose to use these 5 stratums to create groups based on similar characteristics of type and size with the goal of reducing variance within stratums, but also maintaining differences between stratums. 
+To start, we found the most up-to-date csv file (Most-Recent-Cohorts-Instition_05192025) from the U.S. Department of Education College Scoreboard site (https://collegescorecard.ed.gov/data/). We decided to create five stratum - private/small, private/medium + large, public/small, public/medium, and public/large. To do this, the first step was to designate which schools were private or public. The variable CONTROL from the original csv file was recoded into a new variable called "type". The variable CONTROL contained 3 levels - 1 indicating public, 2 indicating private nonprofit, and 3 indicating private for profit. The new "type" variable was recoded to contain two levels: public schools (1), and private schools (2 + 3). Next, we categorized the schools as being small, medium, or large. Based on the UGDS variable, indicating undergraduate enrollment, schools were considered small if enrollment is less than 2,000, medium if the enrollment is between 2,000-10,000, and large if enrollment is over 10,000. These thresholds were created based on the size categories from the website. Additionally, we decided to combine the strata for private schools to include both large and medium institutions because there are only ~20 schools that are considered large private schools. This allows us to avoid very small stratum sample sizes when implementing proportional allocation, which can help improve the stability of variance estimates. Overall, we chose to use these 5 strata to create groups based on similar characteristics of type and size with the goal of reducing variance within strata, but also maintaining differences between strata. 
+
+We chose to use a stratified random sampling design with proportional allocation, with strata as described above. To implement proportional allocation, we first determined the total number of sampled colleges to be 100. We computed the stratum population sizes $N_h$. Using the formula for proportional allocation $(n_h = n \frac{N_h}{N})$, we computed the raw $n_h$ for each strata. To round the $n_h$'s to integer while keeping their sum equal to $n$, we floored each $n_h$ and distributed the remainders to strata with largest fractional parts. After computing the sample size for each strata, we joined these values back into our main dataframe and took SRS without replacement within each strata. We also computed the inclusion probabilities $\pi$ as well as the weights to use for Horvitz-Thompson unbiased estimators.
 
 
 ```{r}
@@ -25,7 +27,7 @@ colleges <- read.csv("colleges.csv")
 ```{r}
 
 colleges_q1 <-  colleges %>%
-  select(INSTNM, UGDS, CONTROL, CIP27BACHL, MD_EARN_WNE_5YR, TUITIONFEE_IN) %>%
+  select(INSTNM, UGDS, CONTROL, CIP27ASSOC, CIP27BACHL, CIP27CERT1, CIP27CERT2, CIP27CERT4, MD_EARN_WNE_5YR, TUITIONFEE_IN) %>%
   mutate (type = case_when(
     CONTROL == 1 ~ "Public",
     CONTROL %in% c(2, 3) ~"Private",
@@ -49,10 +51,23 @@ colleges_q1 <- colleges_q1 %>%
     TRUE ~ NA_character_
   ))
 
-colleges_q1 <- colleges_q1 %>% 
-  drop_na()
+colleges_q1 <- colleges_q1 %>%
+  mutate(has_stats_major = ifelse(
+    CIP27CERT1 > 0 | CIP27CERT2 > 0 | CIP27ASSOC > 0 | 
+    CIP27BACHL > 0 | CIP27CERT4 > 0, 
+    1, 0
+  ))
+
+
+colleges_q1 <- colleges_q1 %>%
+  drop_na(type, size)
+
+
+#colleges_q1 <- colleges_q1 %>% 
+#  drop_na()
 
 ```
+
 
 ```{r}
 # sample with proportional allocation
@@ -132,10 +147,19 @@ total_undergrads <- svytotal(~UGDS, des)
 total_undergrads
 confint(total_undergrads)
 ```
-The total number of undergraduate students enrolled in college is 13,056,855 with a standard error of 1,157,820. We are 95% confident that the true total number of undergraduates is between 10,787,569 and 15,326,140. 
+The estimated total number of undergraduate students enrolled in college is 14,235,630 with a standard error of 1,223,757. We are 95% confident that the true total number of undergraduates is between 11,837,110 and 16,634,150. 
 
 ### Question 2
 What fraction of colleges have a major in statistical science? Use your sample to estimate this fraction; do not get the answer by filtering the schools. 
+
+```{r}
+prop_stats <- svymean(~has_stats_major, des)
+prop_stats
+confint(prop_stats)
+```
+The CIPCODE for mathematics and statistics majors is 27, and there are several degree programs that may be available at each school, including the CIP27ASSOC, CIP27BACHL, CIP27CERT1, CIP27CERT2, CIP27CERT4 variables, which are Boolean variables. If any of these are offered at the college, we count that the university has a statistical science major. The estimated proportion of colleges that have a major in statistical science is 0.2893 with a standard error of 0.0336 The 95% confidence interval for this is (0.2235, 0.3552).
+(https://collegescorecard.ed.gov/files/FieldOfStudyDataDocumentation.pdf)
+
 
 ### Question 3
 What is the average of the median earnings among alumni from public schools? From private schools? (combine for profit and not for profit private schools)
@@ -147,8 +171,8 @@ confint(avg_median_earnings)
 ```
 To answer this question, we will be using the MD_EARN_WNE_5YR variable. This variable indicates the median earnings 5 years after graduation, which is a good time metric since the question is focused on alumni specifically (https://collegescorecard.ed.gov/files/InstitutionDataDocumentation.pdf). 
 
-The average of the median earnings among alumni 5 years after completion of private colleges is 48267.42 with a standard error of 2303.50. The average of the median earnings among alumni 5 years after completion of public colleges is 49500.21 with a standard error of 1286.48.
-The 95% confidence interval for median earnings for private school alum is between 43,752 and 52,782. The 95% confidence interval for median earnings for public school alum is between 46,978 and 52,021. 
+The average of the median earnings among alumni 5 years after completion of private colleges is 49202.90 with a standard error of 2799.480. The average of the median earnings among alumni 5 years after completion of public colleges is 49024.78 with a standard error of 1459.838
+The 95% confidence interval for median earnings for private school alum is between 43,716.02 and 54,689.78. The 95% confidence interval for median earnings for public school alum is between 46,163.55 and 51,886.01.
 
 ### Question 4
 What is the average of the tuition for in-state students from public schools? From private schools? (combine for profit and not for profit private schools)
@@ -161,7 +185,7 @@ confint(avg_tuition)
 
 To answer this question, we will be using the TUITIONFEE_IN variable. This variable indicates the tuition and required fees that are for in-state students (https://collegescorecard.ed.gov/files/InstitutionDataDocumentation.pdf) 
 
-The average of tuition for in-state students in private colleges is 28,834 with a standard error of 2017. The average tuition for in-state students in public colleges is 5,990 with a standard error of 491. 
-The 95% CI for average tuition of in-state students in private colleges is between 24880 and 32788. The 95% CI for average tuition of in-state students in public colleges is between 5026 and 6955. 
-This makes sense private colleges usually charge both in-state and out-state students the same tuition, whereas those living in-state and attending public colleges are usually charged significantly less. 
+The average of tuition for in-state students in private colleges is 27,193.65 with a standard error of 2,301.68. The average tuition for in-state students in public colleges is 6,729.94 with a standard error of 916.88. 
+The 95% CI for average tuition of in-state students in private colleges is between 22,682.45 and 31,704.85. The 95% CI for average tuition of in-state students in public colleges is between 4,932.89 and 8,527.00. 
+This makes sense, as private colleges usually charge both in-state and out-state students the same tuition, whereas those living in-state and attending public colleges are usually charged significantly less. 
 
