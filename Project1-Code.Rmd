@@ -16,7 +16,7 @@ To start, we found the most up-to-date csv file (Most-Recent-Cohorts-Instition_0
 We chose to use a stratified random sampling design with proportional allocation, with strata as described above. To implement proportional allocation, we first determined the total number of sampled colleges to be 100. We computed the stratum population sizes $N_h$. Using the formula for proportional allocation $(n_h = n \frac{N_h}{N})$, we computed the raw $n_h$ for each strata. To round the $n_h$'s to integer while keeping their sum equal to $n$, we floored each $n_h$ and distributed the remainders to strata with largest fractional parts. After computing the sample size for each strata, we joined these values back into our main dataframe and took SRS without replacement within each strata. We also computed the inclusion probabilities $\pi$ as well as the weights to use for Horvitz-Thompson unbiased estimators.
 
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
 library(dplyr)
 library(tidyr)
 library(survey)
@@ -24,10 +24,10 @@ library(survey)
 colleges <- read.csv("colleges.csv")
 ```
 
-```{r}
-
+```{r, message=FALSE, warning=FALSE}
 colleges_q1 <-  colleges %>%
-  select(INSTNM, UGDS, CONTROL, CIP27ASSOC, CIP27BACHL, CIP27CERT1, CIP27CERT2, CIP27CERT4, MD_EARN_WNE_5YR, TUITIONFEE_IN) %>%
+  select(INSTNM, UGDS, CONTROL, CIP27ASSOC, CIP27BACHL, CIP27CERT1, CIP27CERT2, 
+         CIP27CERT4, MD_EARN_WNE_5YR, TUITIONFEE_IN) %>%
   mutate (type = case_when(
     CONTROL == 1 ~ "Public",
     CONTROL %in% c(2, 3) ~"Private",
@@ -78,7 +78,7 @@ stratum_info <- colleges_q1 %>%
   summarise(N_h = n()) %>% 
   ungroup()
 
-# # compute raw n_h, sample size to allocate to each stratum
+# compute raw n_h, sample size to allocate to each stratum
 stratum_info <- stratum_info %>% 
   mutate(n_h_raw = n_total * (N_h / sum(N_h)))
 
@@ -106,7 +106,8 @@ if(length(zeros)>0){
   while(sum(stratum_info$n_final) > n_total){
     # pick stratum with largest n_final to decrement (but keep >= min)
     idx <- which.max(stratum_info$n_final)
-    if(stratum_info$n_final[idx] > min_per_stratum) stratum_info$n_final[idx] <- stratum_info$n_final[idx] - 1
+    if(stratum_info$n_final[idx] > min_per_stratum) 
+      stratum_info$n_final[idx] <- stratum_info$n_final[idx] - 1
     else break
   }
 }
@@ -115,7 +116,9 @@ stopifnot(sum(stratum_info$n_final) == n_total)
 
 
 # add n_h to colleges_df
-colleges_df <- colleges_q1 %>% left_join(stratum_info %>% select(stratum, N_h, n_final), by = "stratum")
+colleges_df <- colleges_q1 %>% 
+  left_join(stratum_info %>% 
+              select(stratum, N_h, n_final), by = "stratum")
 names(colleges_df)[names(colleges_df) == "n_final"] <- "n_h"
 
 # SRSWOR in each stratum
@@ -134,7 +137,8 @@ sampled <- sampled %>%
 What is an estimate of the total number of undergraduate students enrolled in colleges? Design your survey with the goal of answering this question most accurately. 
 
 ```{r}
-des <- svydesign(id = ~1, strata = ~stratum, weights = ~weight, fpc = ~N_h, data = sampled)
+des <- svydesign(id = ~1, strata = ~stratum, weights = ~weight, fpc = ~N_h, 
+                 data = sampled)
 
 total_undergrads <- svytotal(~UGDS, des)
 total_undergrads
